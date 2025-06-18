@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Text Humanizer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #000;
+      color: #fff;
+    }
+    h1 {
+      color: #fff;
+      text-align: center;
+    }
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      resize: vertical;
+      font-size: 16px;
+      margin-bottom: 10px;
+      background-color: #222;
+      color: #fff;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 5px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #humanizedText {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #222;
+      border: 1px solid #444;
+      border-radius: 4px;
+      min-height: 50px;
+      font-size: 16px;
+      color: #fff;
+    }
+    .button-container {
+      text-align: center;
+    }
+    .copy-button {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      margin-top: 10px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .copy-button:hover {
+      background-color: #218838;
+    }
+    .copy-icon {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>AI Text Humanizer</h1>
+  <textarea id="inputText" rows="6" cols="50" placeholder="Enter AI-generated text to humanize"></textarea>
+  <div class="button-container">
+    <button onclick="humanizeText()">Humanize Text</button>
+  </div>
+  <p id="humanizedText"></p>
+  <button class="copy-button" onclick="copyText()" style="display: none;">
+    <span class="copy-icon">📋</span> Copy Text
+  </button>
+
+  <script>
+    const OPENAI_API_KEY = "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";
+
+    async function humanizeText() {
+      const text = document.getElementById("inputText").value;
+      const humanizedTextEl = document.getElementById("humanizedText");
+      const copyButton = document.querySelector(".copy-button");
+      if (!text) {
+        humanizedTextEl.textContent = "Please enter some text.";
+        copyButton.style.display = "none";
+        return;
+      }
+      humanizedTextEl.textContent = "Humanizing...";
+      copyButton.style.display = "none";
+      try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${OPENAI_API_KEY}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content: "You are a helpful assistant tasked with rephrasing AI-generated text to sound more natural, conversational, and human-like. Avoid robotic or overly formal language, and use varied sentence structures, colloquial expressions, and a friendly tone."
+              },
+              {
+                role: "user",
+                content: `Rephrase the following text to make it sound more human-like: "${text}"`
+              }
+            ],
+            max_tokens: 1000,
+            temperature: 0.7
+          })
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP error ${response.status}: ${errorText}`);
+        }
+        const data = await response.json().catch(async (e) => {
+          const rawText = await response.text();
+          throw new Error(`JSON parsing failed: ${e.message}. Raw response: ${rawText}`);
+        });
+        if (data.choices && data.choices[0] && data.choices[0].message.content) {
+          humanizedTextEl.textContent = data.choices[0].message.content;
+          copyButton.style.display = "inline-flex";
+        } else {
+          humanizedTextEl.textContent = "Unexpected response from API: No humanized text found.";
+          copyButton.style.display = "none";
+        }
+      } catch (error) {
+        humanizedTextEl.textContent = "Error: " + error.message;
+        copyButton.style.display = "none";
+      }
+    }
+
+    function copyText() {
+      const humanizedText = document.getElementById("humanizedText").textContent.trim();
+      console.log("Attempting to copy text:", humanizedText); // Debugging
+      if (humanizedText && humanizedText !== "Humanizing..." && !humanizedText.startsWith("Error:") && humanizedText !== "Please enter some text.") {
+        // Primary method: Clipboard API
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(humanizedText).then(() => {
+            console.log("Text copied successfully using Clipboard API!");
+            alert("Text copied to clipboard!");
+          }).catch((err) => {
+            const errorName = err.name || "UnknownError";
+            const errorMessage = err.message || "No error message provided";
+            console.error(`Clipboard API error: ${errorName} - ${errorMessage}`);
+            // Fallback method: document.execCommand
+            try {
+              const textarea = document.createElement("textarea");
+              textarea.value = humanizedText;
+              document.body.appendChild(textarea);
+              textarea.select();
+              document.execCommand("copy");
+              document.body.removeChild(textarea);
+              console.log("Text copied successfully using fallback!");
+              alert("Text copied to clipboard using fallback!");
+            } catch (fallbackErr) {
+              console.error(`Fallback copy error: ${fallbackErr.name || "UnknownError"} - ${fallbackErr.message || "No error message provided"}`);
+              alert(`Failed to copy text: ${errorName} - ${errorMessage}. Please run the page on localhost or HTTPS, or copy manually.`);
+            }
+          });
+        } else {
+          // Fallback for browsers without Clipboard API
+          console.error("Clipboard API not supported in this browser.");
+          try {
+            const textarea = document.createElement("textarea");
+            textarea.value = humanizedText;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+            console.log("Text copied successfully using fallback!");
+            alert("Text copied to clipboard using fallback!");
+          } catch (fallbackErr) {
+            console.error(`Fallback copy error: ${fallbackErr.name || "UnknownError"} - ${fallbackErr.message || "No error message provided"}`);
+            alert("Copying is not supported in this browser. Please select the text manually and copy it.");
+          }
+        }
+      } else {
+        console.log("No valid text to copy:", humanizedText);
+        alert("No valid text available to copy.");
+      }
+    }
+  </script>
+</body>
+</html>
